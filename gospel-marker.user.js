@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gospel Library quick marker toolbar
 // @namespace    https://github.com/ammo-man/gospel-library-marker
-// @version      1.0.0
+// @version      1.0.1
 // @description  Always-visible color/style toolbar for marking text on churchofjesuschrist.org
 // @author       ammo-man
 // @license      MIT
@@ -200,7 +200,18 @@
     });
     Object.assign(b.style, css);
     b.innerHTML = svg(label);
-    b.addEventListener('click', handler); body.appendChild(b); return b;
+    // Activate on pointerup, not click. preventDefault on touchstart/pointerdown (needed to keep the
+    // text selection) makes iOS skip the synthesized click, so a click handler never fires on iPad.
+    let down = null, lastFire = 0;
+    const fire = () => { lastFire = Date.now(); handler(); };
+    b.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY }; });
+    b.addEventListener('pointerup', e => {
+      if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 12) fire();
+      down = null;
+    });
+    b.addEventListener('pointercancel', () => { down = null; });
+    b.addEventListener('click', () => { if (Date.now() - lastFire > 700) fire(); });  // keyboard / fallback
+    body.appendChild(b); return b;
   };
   for (const { id, css, icon, label } of COLORS) {
     btn({ background: css }, icon, () => apply(id, 'full-height')).title = label + ' (highlight)';
